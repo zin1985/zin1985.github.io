@@ -1,5 +1,6 @@
-/* Chromium MV3 hidden audio host. Model inference and translation stay in-browser.
-   The ONLY outgoing traffic is downloading public AI model weights on first use. */
+/* Chromium MV3 audio host. Free local mode processes speech/translation in-browser.
+   AssemblyAI mode explicitly sends captured tab audio to the metered Streaming API.
+   Japanese translation remains in-browser using FuguMT. */
 import {SpeechChunker,normText} from './segmentation.js';
 import {pcm16,assemblyWebsocketUrl,AssemblyTurns} from './assembly-streaming.js';
 let state=null;
