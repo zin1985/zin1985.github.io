@@ -1,0 +1,17 @@
+{
+  "name": "live-japanese-captions-edge-portable",
+  "version": "0.4.2",
+  "private": true,
+  "description": "Offline-transcription browser extension (Edge/Chrome) using locally bundled Transformers.js",
+  "scripts": {
+    "build": "node build/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}
