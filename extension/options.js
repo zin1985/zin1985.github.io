@@ -1,12 +1,32 @@
-const defaults={sourceLanguage:'en-US',showOriginal:false,fontSize:26,asrBackend:'auto'};
+const defaults={sourceLanguage:'en-US',showOriginal:false,fontSize:26,asrBackend:'auto',captionMode:'local',assemblyMinutes:10};
 const $=id=>document.getElementById(id);
 let whisper=null;
 const display=(msg)=>{$('message').textContent=String(msg);};
-function selected(){return {sourceLanguage:$('lang').value,showOriginal:$('original').checked,fontSize:Math.max(18,Math.min(48,Number($('fontSize').value)||26)),asrBackend:$('backend').value};}
+function selected(){return {sourceLanguage:$('lang').value,showOriginal:$('original').checked,fontSize:Math.max(18,Math.min(48,Number($('fontSize').value)||26)),asrBackend:$('backend').value,captionMode:$('captionMode').value,assemblyMinutes:Math.max(1,Math.min(60,Number($('assemblyMinutes').value)||10))};}
+
+function updateCaptionMode(){$('assemblyConfig').style.display=$('captionMode').value==='assemblyai'?'block':'none';}
+$('captionMode').addEventListener('change',updateCaptionMode);
+chrome.storage.local.get('assemblyApiKey').then(result=>{$('keyStatus').textContent=result.assemblyApiKey?'保存済み':'未設定';});
+$('saveAssemblyKey').addEventListener('click',()=>withBusy($('saveAssemblyKey'),async()=>{
+  const key=$('assemblyApiKey').value.trim();
+  if(!key)throw Error('キーを入力してください。');
+  if(key.length<15||key.length>200||/\s/.test(key))throw Error('入力形式を確認してください');
+  await chrome.storage.local.set({assemblyApiKey:key});
+  $('assemblyApiKey').value='';
+  $('keyStatus').textContent='保存済み';
+  display('APIキーをこのPCに保存しました。次に基本設定を保存してください。');
+}));
+$('forgetAssemblyKey').addEventListener('click',()=>withBusy($('forgetAssemblyKey'),async()=>{
+  await chrome.storage.local.remove('assemblyApiKey');
+  $('assemblyApiKey').value='';
+  $('keyStatus').textContent='未設定';
+  display('APIキーを削除しました。');
+}));
+
 const translationOptions=()=>({sourceLanguage:$('lang').value.split('-')[0],targetLanguage:'ja'});
 chrome.storage.sync.get(defaults).then(settings=>{
  $('lang').value=settings.sourceLanguage;$('original').checked=settings.showOriginal;
- $('fontSize').value=settings.fontSize;$('backend').value=settings.asrBackend||'auto';display('設定を読み込みました。最初にWhisperと翻訳モデルを準備してください。');
+ $('fontSize').value=settings.fontSize;$('backend').value=settings.asrBackend||'auto';$('captionMode').value=settings.captionMode||'local';$('assemblyMinutes').value=settings.assemblyMinutes||10;updateCaptionMode();display('設定を読み込みました。最初にWhisperと翻訳モデルを準備してください。');
 });
 $('save').addEventListener('click',async()=>{await chrome.storage.sync.set(selected());display('設定を保存しました。次回の字幕開始から反映されます。');});
 $('gpu-status').addEventListener('click',async()=>{

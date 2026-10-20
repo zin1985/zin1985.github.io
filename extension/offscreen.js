@@ -1,6 +1,7 @@
 /* Chromium MV3 hidden audio host. Model inference and translation stay in-browser.
    The ONLY outgoing traffic is downloading public AI model weights on first use. */
 import {SpeechChunker,normText} from './segmentation.js';
+import {pcm16,assemblyWebsocketUrl,AssemblyTurns} from './assembly-streaming.js';
 let state=null;
 const send=(s,type,other={})=>{
   if(!s||s.stopped||s!==state)return;
@@ -33,6 +34,8 @@ async function initializeTranslator(s){
 async function stop(){
   const s=state;if(!s)return;
   s.stopped=true;state=null;
+  if(s.sessionTimeout)clearTimeout(s.sessionTimeout);
+  if(s.socket){try{if(s.socket.readyState===WebSocket.OPEN)s.socket.send(JSON.stringify({type:'Terminate'}));}catch{} try{s.socket.close();}catch{}s.socket=null;}
   try{s.processor?.port?.close();s.processor?.disconnect();s.mute?.disconnect();}catch{}
   try{s.stream?.getTracks().forEach(track=>track.stop());}catch{}
   try{await s.context?.close();}catch{}
@@ -66,6 +69,73 @@ async function processJobs(s){
   }catch(error){send(s,'ERROR',{text:normalizeError(error)});void stop();}
   finally{s.processing=false;}
 }
+
+async function processAssemblyJobs(s){
+  if(s.processing||s.stopped||s!==state||!s.ready)return;
+  s.processing=true;
+  try{
+    while(s.tasks.length&&s===state&&!s.stopped){
+      const job=s.tasks.shift(),stamp=performance.now();
+      const original=job.original;
+      let translated='';
+      try{translated=String(await s.translator.translate(original)).trim();}
+      catch(e){throw Error('FuguMT翻訳失敗: '+normalizeError(e));}
+      if(!translated||s.stopped||s!==state)continue;
+      send(s,'CAPTION',{text:translated,original,processing_ms:Math.round(performance.now()-stamp)});
+    }
+  }catch(e){send(s,'ERROR',{text:normalizeError(e)});void stop();}
+  finally{s.processing=false;}
+}
+async function prepareAssembly(s){
+  if(languageCode(s.sourceLanguage)!=='en')throw Error('AssemblyAI Universal Streamingは英語配信専用です。言語を英語に設定してください');
+  send(s,'STATUS',{text:'AssemblyAIモード: FuguMTを準備中（初回モデル取得あり）'});
+  const {loadOfflineTranslator,translateOffline}=await import(chrome.runtime.getURL('vendor/whisper.bundle.js'));
+  await loadOfflineTranslator(message=>send(s,'STATUS',{text:message}));
+  if(s.stopped||s!==state)return;
+  s.translator={translate:original=>translateOffline(original,'en'),destroy(){}};
+  send(s,'STATUS',{text:'AssemblyAIの一時認証トークンを取得中'});
+  const auth=await chrome.runtime.sendMessage({target:'ljc-background',type:'MINT_AAI_TOKEN',session:s.session,limitMinutes:s.limitMinutes});
+  if(!auth?.ok||!auth.token)throw Error(auth?.error||'AssemblyAI一時認証に失敗しました');
+  if(s.stopped||s!==state)return;
+  s.turns=new AssemblyTurns();
+  const socket=new WebSocket(assemblyWebsocketUrl(auth.token));
+  s.socket=socket;
+  socket.binaryType='arraybuffer';
+  socket.onopen=()=>{
+    if(s.stopped||s!==state){socket.close();return;}
+    s.ready=true;
+    send(s,'READY',{backend:'assemblyai'});
+    send(s,'STATUS',{text:'AssemblyAI Universal Streaming接続成功（音声を外部送信中・従量課金）'});
+    s.sessionTimeout=setTimeout(()=>{
+      if(s.stopped||s!==state)return;
+      send(s,'ERROR',{text:'AssemblyAIの設定時間上限に達したため字幕を停止しました。'});
+      void stop();
+    },s.limitMinutes*60000);
+  };
+  socket.onmessage=event=>{
+    if(s.stopped||s!==state)return;
+    let message;
+    try{message=JSON.parse(event.data);}catch{return;}
+    if(message.type==='Turn'){
+      const utterance=s.turns.accept(message);
+      if(!utterance)return;
+      if(s.tasks.length>=3){s.tasks.shift();send(s,'STATUS',{text:'翻訳負荷により古い字幕をスキップしました'});}
+      s.tasks.push(utterance);
+      void processAssemblyJobs(s);
+    }
+    if(message.type==='Error'||message.type==='SessionError'){
+      send(s,'ERROR',{text:'AssemblyAI応答: '+normalizeError(message.error||message.message)});
+      void stop();
+    }
+  };
+  socket.onerror=()=>{if(s===state&&!s.stopped)send(s,'STATUS',{text:'AssemblyAI通信エラー。接続状態を確認しています'});};
+  socket.onclose=event=>{
+    if(s.stopped||s!==state)return;
+    send(s,'ERROR',{text:'AssemblyAI接続終了 ('+event.code+')。APIキー・利用枠・ネットワークを確認してください'});
+    void stop();
+  };
+}
+
 async function prepare(s){
   try{
     s.translator=await initializeTranslator(s);
@@ -84,7 +154,7 @@ async function prepare(s){
 }
 async function start(msg){
   await stop();
-  const s={session:msg.session,tabId:msg.tabId,sourceLanguage:msg.sourceLanguage||'en-US',backend:msg.asrBackend||'auto',stopped:false,ready:false,processing:false, tasks:[],lastText:'',lastTime:0,translator:null,stream:null,context:null,processor:null,mute:null,chunker:null};
+  const s={session:msg.session,tabId:msg.tabId,sourceLanguage:msg.sourceLanguage||'en-US',backend:msg.asrBackend||'auto',mode:msg.captionMode||'local',limitMinutes:Math.max(1,Math.min(60,Number(msg.assemblyMinutes)||10)),socket:null,turns:null,sessionTimeout:null,stopped:false,ready:false,processing:false, tasks:[],lastText:'',lastTime:0,translator:null,stream:null,context:null,processor:null,mute:null,chunker:null};
   state=s;
   try{
     // Single-use stream ID must be redeemed immediately, BEFORE slow AI downloads.
@@ -110,10 +180,15 @@ async function start(msg){
       void processJobs(s);
     }});
     s.processor.port.onmessage=event=>{
-      if(s===state&&!s.stopped){const audio=new Float32Array(event.data);if(s.ready)s.chunker.accept(audio);}
+      if(s===state&&!s.stopped&&s.ready){const audio=new Float32Array(event.data);if(s.mode==='assemblyai'){
+        if(s.socket?.readyState===WebSocket.OPEN){
+          if(s.socket.bufferedAmount>1024*1024){send(s,'STATUS',{text:'通信遅延のため音声チャンクをスキップ'});return;}
+          s.socket.send(pcm16(audio));
+        }
+      }else s.chunker.accept(audio);}
     };
     await s.context.resume();
-    send(s,'STATUS',{text:'タブ音声取得成功。Whisperモデルを準備中…'});
+    send(s,'STATUS',{text:s.mode==='assemblyai'?'タブ音声取得成功。AssemblyAI + FuguMTを準備中…':'タブ音声取得成功。Whisperモデルを準備中…'});
     void prepare(s); // Don't hold the short-lived runtime message port open during downloads.
     return {ok:true};
   }catch(error){const message=normalizeError(error);await stop();return {ok:false,error:message};}

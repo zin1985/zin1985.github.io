@@ -1,14 +1,24 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live Japanese Captions | 設定</title><style>
 :root{font-family:system-ui,'Noto Sans JP',sans-serif;color-scheme:light}body{max-width:810px;margin:25px auto;background:#f5f8fc;color:#183046;padding:0 16px}main{border-radius:18px;padding:25px;background:white;border:1px solid #dae5ee;box-shadow:0 10px 35px #081f3612}h1{margin:0 0 4px;font-size:26px}h2{margin-top:27px;font-size:19px}p{line-height:1.65}label{display:block;margin:13px 0}select,input[type=number],input[type=file]{margin:5px 0;padding:9px;border-radius:8px;border:1px solid #9baeba;max-width:100%}button{padding:10px 15px;margin:5px 7px 5px 0;border:0;border-radius:8px;background:#1362a2;color:white;font-weight:700;cursor:pointer}button:disabled{opacity:.45;cursor:wait}.muted{color:#587082;font-size:13px}.notice{padding:13px;background:#eff8fd;border-left:4px solid #2a84b9;border-radius:7px}#message{white-space:pre-wrap;background:#17283a;color:#e7f7ff;padding:16px;border-radius:10px;min-height:40px;overflow-wrap:anywhere;font-size:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid>div{border:1px solid #d9e5ec;border-radius:10px;padding:15px}@media(max-width:680px){.grid{grid-template-columns:1fr}main{padding:17px}}
 </style></head><body><main>
-<h1>Live Japanese Captions</h1><p class="muted">Edge / Chrome ポータブル版 v0.4.2 | Whisper WebGPU / WASM | サーバー不要</p>
+<h1>Live Japanese Captions</h1><p class="muted">Edge / Chrome ポータブル版 v0.5.0 | Whisper WebGPU / WASM | サーバー不要</p>
 <div class="notice">Edgeの実験的な音声認識フラグは不要です。Whisperモデルを一度ダウンロードすると、音声認識はPC内だけで実行します。翻訳にはEdge／Chromeの端末内Translator APIを使います。</div>
 <h2>基本設定</h2>
+<label>字幕モード <select id="captionMode"><option value="local">無料：Whisper + ローカル翻訳</option><option value="assemblyai">AssemblyAI Universal Streaming + FuguMT（英語のみ）</option></select></label>
 <label>配信の言語 <select id="lang"><option value="en-US">英語</option><option value="ko-KR">韓国語</option><option value="es-ES">スペイン語</option><option value="fr-FR">フランス語</option><option value="de-DE">ドイツ語</option><option value="zh-CN">中国語</option><option value="it-IT">イタリア語</option><option value="pt-PT">ポルトガル語</option><option value="ja-JP">日本語（翻訳不要）</option></select></label>
 <label>Whisper認識エンジン <select id="backend"><option value="auto">自動（WebGPU→WASM）推奨</option><option value="webgpu">WebGPUのみ</option><option value="wasm">CPU/WASMのみ</option></select></label>
 <label><input type="checkbox" id="original"> 外国語の原文も併記する</label>
 <label>字幕サイズ <input type="number" min="18" max="48" step="2" id="fontSize" value="26"> px</label>
 <button id="save">設定を保存</button>
+<section id="assemblyConfig" class="notice">
+<h2>AssemblyAI Streaming 設定</h2>
+<p>ストリーミングモードは再生音声をAssemblyAIへ送信し従量課金されます。FuguMT翻訳はローカル処理です。</p>
+<label>セッション上限（分）<input id="assemblyMinutes" type="number" min="1" max="60" value="10"></label>
+<label>AssemblyAI APIキー <input id="assemblyApiKey" type="password" autocomplete="off" placeholder="保存済みの場合は空欄"></label>
+<button id="saveAssemblyKey">キーを保存</button>
+<button id="forgetAssemblyKey">キーを削除</button>
+<p id="keyStatus" class="muted">未確認</p>
+</section>
 <h2>初回準備</h2><div class="grid"><div><strong>① Whisper音声認識</strong><p class="muted">Whisper multilingual tiny。モデルは初回にHugging Faceから取得し、その後ブラウザ内キャッシュで再利用します。WebGPU未対応ならCPU/WASMを使用します。</p><button id="gpu-status">GPU対応を確認</button><button id="runtime-check">実行ファイルを確認</button><button id="whisper-init">Whisperモデルを準備</button></div>
 <div><strong>② 日本語翻訳</strong><p class="muted">Edge内蔵翻訳を優先し、生成できない場合は英語→日本語のローカル翻訳に切り替えます。代替モデルは初回に数百MBを取得する場合があります。</p><button id="translation-status">翻訳を確認</button><button id="translation-install">翻訳パックを準備</button><button id="local-translation-install">ローカル英日翻訳を準備</button><button id="translation-test">翻訳テスト</button></div></div>
 <h2>音声ファイルで動作確認</h2><p class="muted">動画配信を開く前に、短い音声ファイル（英語など）を読み込んでWhisperと日本語翻訳を検証できます。ファイルはサーバーにアップロードされません。</p>

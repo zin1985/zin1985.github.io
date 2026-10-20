@@ -2,13 +2,31 @@
   "manifest_version": 3,
   "name": "Live Japanese Captions | Edge & Chrome",
   "short_name": "Live JP Captions",
-  "version": "0.4.2",
-  "description": "Add Japanese subtitles to live videos using browser-local Whisper ASR and Translator API, no Python server.",
+  "version": "0.5.0",
+  "description": "Japanese subtitles with local Whisper or AssemblyAI Universal Streaming, plus browser-local translation.",
   "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "tabCapture", "offscreen", "scripting", "storage"],
-  "host_permissions": ["https://huggingface.co/*", "https://*.huggingface.co/*", "https://*.xethub.hf.co/*", "https://*.hf.co/*"],
-  "background": {"service_worker": "background.js"},
-  "action": {"default_title": "日本語字幕を開始 / 停止"},
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "offscreen",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://huggingface.co/*",
+    "https://*.huggingface.co/*",
+    "https://*.xethub.hf.co/*",
+    "https://*.hf.co/*",
+    "https://streaming.assemblyai.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "日本語字幕を開始 / 停止"
+  },
   "options_page": "options.html",
-  "content_security_policy": {"extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"}
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
 }
