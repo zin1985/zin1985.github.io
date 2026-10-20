@@ -82,6 +82,7 @@ async function processAssemblyJobs(s){
       try{translated=String(await s.translator.translate(original)).trim();}
       catch(e){throw Error('FuguMT翻訳失敗: '+normalizeError(e));}
       if(!translated||s.stopped||s!==state)continue;
+      s.lastCaptionAt=Date.now();s.captionsSent++;
       send(s,'CAPTION',{text:translated,original,processing_ms:Math.round(performance.now()-stamp)});
     }
   }catch(e){send(s,'ERROR',{text:normalizeError(e)});void stop();}
@@ -104,7 +105,7 @@ async function prepareAssembly(s){
   socket.binaryType='arraybuffer';
   socket.onopen=()=>{
     if(s.stopped||s!==state){socket.close();return;}
-    s.ready=true;
+    s.ready=true;s.connectedAt=Date.now();
     send(s,'READY',{backend:'assemblyai'});
     send(s,'STATUS',{text:'AssemblyAI Universal Streaming接続成功（音声を外部送信中・従量課金）'});
     s.sessionTimeout=setTimeout(()=>{
@@ -117,9 +118,15 @@ async function prepareAssembly(s){
     if(s.stopped||s!==state)return;
     let message;
     try{message=JSON.parse(event.data);}catch{return;}
+    if(message.type==='Heartbeat'){
+      s.lastHeartbeat=message.realtime_factor;
+      return;
+    }
     if(message.type==='Turn'){
+      s.turnEvents++;
       const utterance=s.turns.accept(message);
       if(!utterance)return;
+      s.phrasesReceived++;
       if(s.tasks.length>=3){s.tasks.shift();send(s,'STATUS',{text:'翻訳負荷により古い字幕をスキップしました'});}
       s.tasks.push(utterance);
       void processAssemblyJobs(s);
@@ -139,6 +146,7 @@ async function prepareAssembly(s){
 
 async function prepare(s){
   try{
+    if(s.mode==='assemblyai'){await prepareAssembly(s);return;}
     s.translator=await initializeTranslator(s);
     if(s.stopped||s!==state)return;
     let module;
@@ -155,7 +163,7 @@ async function prepare(s){
 }
 async function start(msg){
   await stop();
-  const s={session:msg.session,tabId:msg.tabId,sourceLanguage:msg.sourceLanguage||'en-US',backend:msg.asrBackend||'auto',mode:msg.captionMode||'local',limitMinutes:Math.max(1,Math.min(60,Number(msg.assemblyMinutes)||10)),socket:null,turns:null,sessionTimeout:null,stopped:false,ready:false,processing:false, tasks:[],lastText:'',lastTime:0,translator:null,stream:null,context:null,processor:null,mute:null,chunker:null};
+  const s={session:msg.session,tabId:msg.tabId,sourceLanguage:msg.sourceLanguage||'en-US',backend:msg.asrBackend||'auto',mode:msg.captionMode||'local',limitMinutes:Math.max(1,Math.min(60,Number(msg.assemblyMinutes)||10)),socket:null,turns:null,sessionTimeout:null,lastHeartbeat:null,audioFrames:0,turnEvents:0,phrasesReceived:0,captionsSent:0,connectedAt:0,lastCaptionAt:0,stopped:false,ready:false,processing:false, tasks:[],lastText:'',lastTime:0,translator:null,stream:null,context:null,processor:null,mute:null,chunker:null};
   state=s;
   try{
     // Single-use stream ID must be redeemed immediately, BEFORE slow AI downloads.
@@ -184,7 +192,12 @@ async function start(msg){
       if(s===state&&!s.stopped&&s.ready){const audio=new Float32Array(event.data);if(s.mode==='assemblyai'){
         if(s.socket?.readyState===WebSocket.OPEN){
           if(s.socket.bufferedAmount>1024*1024){send(s,'STATUS',{text:'通信遅延のため音声チャンクをスキップ'});return;}
-          s.socket.send(pcm16(audio));
+          try{s.socket.send(pcm16(audio));}
+          catch(error){send(s,'ERROR',{text:'AssemblyAI音声送信に失敗しました: '+normalizeError(error)});void stop();return;}
+          s.audioFrames++;
+          if(s.audioFrames%100===0 && Date.now()-s.lastCaptionAt>7500){
+            send(s,'STATUS',{text:'AssemblyAI接続中｜送信約'+Math.round(s.audioFrames/10)+'秒、認識応答 '+s.turnEvents+'件、翻訳中 '+s.tasks.length+'件、字幕 '+s.captionsSent+'件'+(s.lastHeartbeat!=null?'、音声受信比 '+Number(s.lastHeartbeat).toFixed(2):'')});
+          }
         }
       }else s.chunker.accept(audio);}
     };

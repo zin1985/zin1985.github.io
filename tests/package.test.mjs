@@ -1,12 +1,12 @@
-﻿import test from 'node:test';
+﻿﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, statSync} from 'node:fs';
 import {SpeechChunker, normText} from '../extension/segmentation.js';
 
-test('manifest v0.5.0 defines MV3 and tab capture', () => {
+test('manifest v0.5.1 defines MV3 and tab capture', () => {
   const m = JSON.parse(readFileSync(new URL('../extension/manifest.json', import.meta.url),'utf8'));
   assert.equal(m.manifest_version,3);
-  assert.equal(m.version,'0.5.0');
+  assert.equal(m.version,'0.5.1');
   assert.ok(m.permissions.includes('tabCapture'));
   assert.ok(m.permissions.includes('offscreen'));
 });

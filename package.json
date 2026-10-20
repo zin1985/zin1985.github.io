@@ -1,6 +1,6 @@
 {
   "name": "live-japanese-captions-edge-portable",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Offline-transcription browser extension (Edge/Chrome) using locally bundled Transformers.js",
   "scripts": {

@@ -1,4 +1,4 @@
-# Live Japanese Captions v0.5.0 beta
+# Live Japanese Captions v0.5.1 beta
 
 Edge / Chrome desktop browser extension for live Japanese subtitles.
 **Evaluation build**. Not an official ResoArc production release.
@@ -9,7 +9,7 @@ Edge / Chrome desktop browser extension for live Japanese subtitles.
 - AssemblyAI Universal Streaming: English-only streaming speech recognition and browser-local FuguMT Japanese translation. Tab audio is sent to AssemblyAI and billed according to connected usage.
 
 ## Installation
-1. Download and extract LiveJapaneseCaptions-Edge-Portable-v0.5.0.zip.
+1. Download and extract LiveJapaneseCaptions-Edge-Portable-v0.5.1.zip.
 2. Open edge://extensions or chrome://extensions. Turn Developer mode ON.
 3. Load unpacked extension directory.
 4. In Options choose caption mode. Free local is the default.
@@ -36,3 +36,15 @@ This PC browser extension does not support the YouTube smartphone app.
 
 For development run: npm ci; npm run build; npm test.
 For third-party license information see THIRD_PARTY_NOTICES.md.
+
+
+## v0.5.1 debugging
+
+Fix: AssemblyAI mode now enters the actual Streaming v3 initialization instead of the local Whisper initializer. The old v0.5.0 branch could skip the WebSocket entirely. Transcription updates containing finalized words are segmented every ~1.8 seconds (min 4 words), or after a 12-word threshold, to avoid waiting indefinitely for a turn to end. A liveness status periodically shows approximate seconds sent, events received, and captions generated, without logging audio/transcript text.
+
+If captions disappear, watch the bottom-right status while speech is playing:
+- Audio seconds increasing, recognition events 0: network / model / audio input issue.
+- Recognition events increasing, captions 0: utterance finalization, text detection, or local FuguMT issue.
+- Captions increase but display disappears: captions intentionally hide after 8.5 seconds without a new phrase.
+
+No paid API call or G83/HV browser end-to-end test is included in this build. Audio captured in AssemblyAI mode is sent to AssemblyAI and billed according to provider terms.
