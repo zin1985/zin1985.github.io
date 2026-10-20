@@ -1,0 +1,19 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live Japanese Captions | 設定</title><style>
+:root{font-family:system-ui,'Noto Sans JP',sans-serif;color-scheme:light}body{max-width:810px;margin:25px auto;background:#f5f8fc;color:#183046;padding:0 16px}main{border-radius:18px;padding:25px;background:white;border:1px solid #dae5ee;box-shadow:0 10px 35px #081f3612}h1{margin:0 0 4px;font-size:26px}h2{margin-top:27px;font-size:19px}p{line-height:1.65}label{display:block;margin:13px 0}select,input[type=number],input[type=file]{margin:5px 0;padding:9px;border-radius:8px;border:1px solid #9baeba;max-width:100%}button{padding:10px 15px;margin:5px 7px 5px 0;border:0;border-radius:8px;background:#1362a2;color:white;font-weight:700;cursor:pointer}button:disabled{opacity:.45;cursor:wait}.muted{color:#587082;font-size:13px}.notice{padding:13px;background:#eff8fd;border-left:4px solid #2a84b9;border-radius:7px}#message{white-space:pre-wrap;background:#17283a;color:#e7f7ff;padding:16px;border-radius:10px;min-height:40px;overflow-wrap:anywhere;font-size:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid>div{border:1px solid #d9e5ec;border-radius:10px;padding:15px}@media(max-width:680px){.grid{grid-template-columns:1fr}main{padding:17px}}
+</style></head><body><main>
+<h1>Live Japanese Captions</h1><p class="muted">Edge / Chrome ポータブル版 v0.4.1 | Whisper WebGPU / WASM | サーバー不要</p>
+<div class="notice">Edgeの実験的な音声認識フラグは不要です。Whisperモデルを一度ダウンロードすると、音声認識はPC内だけで実行します。翻訳にはEdge／Chromeの端末内Translator APIを使います。</div>
+<h2>基本設定</h2>
+<label>配信の言語 <select id="lang"><option value="en-US">英語</option><option value="ko-KR">韓国語</option><option value="es-ES">スペイン語</option><option value="fr-FR">フランス語</option><option value="de-DE">ドイツ語</option><option value="zh-CN">中国語</option><option value="it-IT">イタリア語</option><option value="pt-PT">ポルトガル語</option><option value="ja-JP">日本語（翻訳不要）</option></select></label>
+<label>Whisper認識エンジン <select id="backend"><option value="auto">自動（WebGPU→WASM）推奨</option><option value="webgpu">WebGPUのみ</option><option value="wasm">CPU/WASMのみ</option></select></label>
+<label><input type="checkbox" id="original"> 外国語の原文も併記する</label>
+<label>字幕サイズ <input type="number" min="18" max="48" step="2" id="fontSize" value="26"> px</label>
+<button id="save">設定を保存</button>
+<h2>初回準備</h2><div class="grid"><div><strong>① Whisper音声認識</strong><p class="muted">Whisper multilingual tiny。モデルは初回にHugging Faceから取得し、その後ブラウザ内キャッシュで再利用します。WebGPU未対応ならCPU/WASMを使用します。</p><button id="gpu-status">GPU対応を確認</button><button id="runtime-check">実行ファイルを確認</button><button id="whisper-init">Whisperモデルを準備</button></div>
+<div><strong>② 日本語翻訳</strong><p class="muted">Edge 148以降のTranslator API。選択した言語と日本語の翻訳パックを準備します。ブラウザによって利用できない言語があります。</p><button id="translation-status">翻訳を確認</button><button id="translation-install">翻訳パックを準備</button><button id="translation-test">翻訳テスト</button></div></div>
+<h2>音声ファイルで動作確認</h2><p class="muted">動画配信を開く前に、短い音声ファイル（英語など）を読み込んでWhisperと日本語翻訳を検証できます。ファイルはサーバーにアップロードされません。</p>
+<input type="file" id="sample-file" accept="audio/*,.wav,.mp3,.m4a,.ogg"><button id="sample-test">音声ファイルを認識・翻訳</button>
+<h2>処理状況</h2><div id="message" role="status" aria-live="polite">設定を読み込んでいます…</div>
+<h2>使い方</h2><p>1. 初回準備の①と②を実行。<br>2. YouTube Liveの動画タブを開き、配信を再生。<br>3. 拡張機能アイコンを押すと字幕開始。再度押すと停止。</p>
+<p class="muted">Whisperの推論は端末内のみ。モデルの初回ダウンロードにはインターネット接続が必要です。モデルはApache-2.0で配布されています。字幕は推定結果のため誤認識があります。同時発話の分離は未実装です。</p>
+</main><script type="module" src="options.js"></script></body></html>
